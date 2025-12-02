@@ -1,0 +1,44 @@
+# Home Assistant Database
+*.db
+*.db-shm
+*.db-wal
+
+# Logs
+*.log
+*.log.*
+
+# Storage (contains tokens, auth, and personal data)
+.storage/
+
+# Cloud configuration
+.cloud/
+
+# Text-to-speech cache
+tts/
+
+# Lock files
+*.lock
+
+# Home Assistant version file (auto-generated)
+.HA_VERSION
+
+# Secrets (if using secrets.yaml)
+secrets.yaml
+
+# Custom components (optional - uncomment if you want to track these)
+# custom_components/
+
+# Backups
+backups/
+*.tar
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# SSL certificates (if stored locally)
+ssl/
+*.pem
+*.key
+*.crt
+

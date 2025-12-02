@@ -52,6 +52,18 @@ shell-nginx:
 shell-n8n:
 	docker compose exec n8n sh
 
+# Shell into pihole container
+shell-pihole:
+	docker compose exec pihole bash
+
+# Shell into immich container
+shell-immich:
+	docker compose exec immich-server sh
+
+# Shell into homeassistant container
+shell-homeassistant:
+	docker compose exec homeassistant bash
+
 # Reload nginx configuration
 nginx-reload:
 	docker compose exec nginx nginx -s reload
@@ -75,6 +87,8 @@ help:
 	@echo "  make prune         - Remove unused Docker resources"
 	@echo "  make shell-nginx   - Shell into nginx container"
 	@echo "  make shell-n8n     - Shell into n8n container"
+	@echo "  make shell-pihole  - Shell into pihole container"
+	@echo "  make shell-immich  - Shell into immich container"
+	@echo "  make shell-homeassistant - Shell into homeassistant container"
 	@echo "  make nginx-reload  - Reload nginx configuration"
 	@echo "  make nginx-test    - Test nginx configuration"
-

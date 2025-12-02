@@ -1,0 +1,18 @@
+# Home Assistant Configuration
+
+homeassistant:
+  name: Home
+  unit_system: metric
+  time_zone: America/New_York
+
+# HTTP configuration for reverse proxy
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+    - 10.0.0.0/8
+
+# Default integrations
+default_config:
+
