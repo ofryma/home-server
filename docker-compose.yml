@@ -12,11 +12,11 @@ services:
     depends_on:
       - n8n
       - nextcloud
-      - pihole
       - uptime-kuma
       - immich-server
       - homeassistant
       - jellyfin
+      - pihole
     healthcheck:
       test: ['CMD', 'nginx', '-t']
       interval: 30s
@@ -106,38 +106,6 @@ services:
       test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
       interval: 10s
       timeout: 5s
-      retries: 5
-      start_period: 30s
-    networks:
-      - home_apps
-
-  pihole:
-    image: pihole/pihole:latest
-    container_name: pihole
-    restart: unless-stopped
-    ports:
-      - "53:53/tcp"
-      - "53:53/udp"
-    expose:
-      - "80"
-    environment:
-      - TZ=America/New_York
-      - WEBPASSWORD=${PIHOLE_PASSWORD:-admin}
-      - FTLCONF_LOCAL_IPV4=${HOST_IP:-192.168.1.1}
-      - DNSMASQ_LISTENING=all
-      - WEB_PORT=80
-      - PIHOLE_DNS_=1.1.1.1;8.8.8.8
-      - DNSSEC=true
-      - QUERY_LOGGING=true
-    volumes:
-      - pihole_data:/etc/pihole
-      - pihole_dnsmasq:/etc/dnsmasq.d
-    cap_add:
-      - NET_ADMIN
-    healthcheck:
-      test: ['CMD', 'dig', '+norecurse', '+retry=0', '@127.0.0.1', 'pi.hole', '||', 'exit', '1']
-      interval: 30s
-      timeout: 10s
       retries: 5
       start_period: 30s
     networks:
@@ -290,16 +258,40 @@ services:
     networks:
       - home_apps
 
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: unless-stopped
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+    expose:
+      - "80"
+    environment:
+      - TZ=America/New_York
+      - WEBPASSWORD=changeme
+      - VIRTUAL_HOST=pihole.localhost
+      - FTLCONF_dns_listeningMode=all
+    volumes:
+      - pihole_data:/etc/pihole
+      - pihole_dnsmasq:/etc/dnsmasq.d
+    cap_add:
+      - NET_ADMIN
+    healthcheck:
+      test: ['CMD-SHELL', 'dig +short +norecurse +retry=0 @127.0.0.1 pi.hole || exit 1']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - home_apps
+
 volumes:
   n8n_data:
     driver: local
   nextcloud_data:
     driver: local
   nextcloud_db:
-    driver: local
-  pihole_data:
-    driver: local
-  pihole_dnsmasq:
     driver: local
   uptime_kuma_data:
     driver: local
@@ -316,6 +308,10 @@ volumes:
   jellyfin_cache:
     driver: local
   jellyfin_media:
+    driver: local
+  pihole_data:
+    driver: local
+  pihole_dnsmasq:
     driver: local
 
 networks:
