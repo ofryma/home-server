@@ -1,4 +1,4 @@
-FROM ghcr.io/n8n-io/n8n:latest
+FROM n8nio/n8n:nightly
 
 USER root
 RUN apk add --no-cache curl bash

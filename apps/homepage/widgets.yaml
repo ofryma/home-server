@@ -1,0 +1,29 @@
+- resources:
+    cpu: true
+    memory: true
+    disk: /
+
+- datetime:
+    text_size: xl
+    format:
+      dateStyle: long
+      timeStyle: short
+      hour12: true
+
+- search:
+    provider: google
+    target: _blank
+
+- openmeteo:
+    label: Home
+    latitude: 32.0853
+    longitude: 34.7818
+    units: metric
+    cache: 5
+
+- uptimekuma:
+    url: http://uptime-kuma:3001
+    slug: default
+
+- docker:
+    server: my-docker

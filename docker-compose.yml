@@ -1,4 +1,21 @@
 services:
+
+  # traefik:
+  #   image: traefik:v3
+  #   container_name: traefik
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #     # (Optional) Expose Dashboard
+  #     - "8080:8080"  # Don't do this in production!
+  #   volumes:
+  #     - ./apps/traefik:/etc/traefik
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #   environment:
+  #     - DOCKER_HOST=unix:///var/run/docker.sock
+  #   networks:
+  #     - home_apps
+
   nginx:
     image: nginx:alpine
     container_name: nginx
@@ -6,9 +23,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./apps/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./apps/nginx/conf.d:/etc/nginx/conf.d:ro
-      - ./apps/nginx/html:/usr/share/nginx/html:ro
     depends_on:
       - n8n
       - nextcloud
@@ -18,11 +33,25 @@ services:
       - jellyfin
       - pihole
       - code-server
-    healthcheck:
-      test: ['CMD', 'nginx', '-t']
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - homepage
+      - portainer
+      - pulse
+      - ghostfolio
+      - netdata
+    networks:
+      - home_apps
+
+  nginx-proxy-manager:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx-proxy-manager
+    restart: unless-stopped
+    ports:
+      - "8080:80"   # HTTP (moved from 80)
+      - "443:443"   # HTTPS
+      - "81:81"     # NPM Admin UI
+    volumes:
+      - npm_data:/data
+      - npm_letsencrypt:/etc/letsencrypt
     networks:
       - home_apps
 
@@ -34,17 +63,18 @@ services:
     restart: unless-stopped
     expose:
       - "5678"
+    ports:
+      - "5678:5678"
     environment:
-      - N8N_HOST=localhost
+      - N8N_HOST=n8n.local
       - N8N_SECURE_COOKIE=false
       - N8N_PORT=5678
       - N8N_PROTOCOL=http
+      - N8N_PATH=/n8n/
       - NODE_ENV=production
-      - WEBHOOK_URL=http://localhost:5678/
+      - WEBHOOK_URL=http://n8n.local/n8n/
       - GENERIC_TIMEZONE=America/New_York
       - N8N_DIAGNOSTICS_ENABLED=false
-      # Path-based routing support
-      - N8N_PATH=/n8n/
       # SQLite configuration
       - DB_SQLITE_POOL_SIZE=3
       - DB_SQLITE_ENABLE_WAL=true
@@ -55,14 +85,12 @@ services:
       - N8N_GIT_NODE_DISABLE_BARE_REPOS=true
     volumes:
       - n8n_data:/home/node/.n8n
-    healthcheck:
-      test: ['CMD-SHELL', 'wget --spider -q http://localhost:5678/healthz || exit 1']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
     networks:
       - home_apps
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.n8n.entrypoints=web"
+      - "traefik.http.routers.n8n.rule=Host(`ofryma.mooo.com`)"
 
   nextcloud:
     image: nextcloud:apache
@@ -80,17 +108,11 @@ services:
       - NEXTCLOUD_TRUSTED_DOMAINS=*
       - OVERWRITEPROTOCOL=http
       - OVERWRITEWEBROOT=/nextcloud
+      - OVERWRITECLIURL=http://localhost/nextcloud
     volumes:
       - nextcloud_data:/var/www/html
     depends_on:
-      nextcloud-db:
-        condition: service_healthy
-    healthcheck:
-      test: ['CMD', 'curl', '-f', 'http://localhost/status.php']
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+      - nextcloud-db
     networks:
       - home_apps
 
@@ -105,12 +127,6 @@ services:
       - MYSQL_PASSWORD=nextcloud_password
     volumes:
       - nextcloud_db:/var/lib/mysql
-    healthcheck:
-      test: ['CMD', 'healthcheck.sh', '--connect', '--innodb_initialized']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
     networks:
       - home_apps
 
@@ -123,12 +139,6 @@ services:
     volumes:
       - uptime_kuma_data:/app/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
-    healthcheck:
-      test: ['CMD-SHELL', 'node -e "require(\"http\").get(\"http://localhost:3001/api/health\", (r) => process.exit(r.statusCode === 200 ? 0 : 1))"']
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s
     networks:
       - home_apps
 
@@ -136,8 +146,8 @@ services:
     image: ghcr.io/immich-app/immich-server:release
     container_name: immich-server
     restart: unless-stopped
-    expose:
-      - "2283"
+    ports:
+      - "2283:2283"
     environment:
       - DB_HOSTNAME=immich-db
       - DB_USERNAME=postgres
@@ -151,16 +161,8 @@ services:
       - immich_upload:/usr/src/app/upload
       - /etc/localtime:/etc/localtime:ro
     depends_on:
-      immich-db:
-        condition: service_healthy
-      immich-redis:
-        condition: service_healthy
-    healthcheck:
-      test: ['CMD-SHELL', 'wget --spider -q http://localhost:2283/api/server/ping || exit 1']
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+      - immich-db
+      - immich-redis
     networks:
       - home_apps
 
@@ -174,12 +176,6 @@ services:
       - immich_model_cache:/cache
     environment:
       - TZ=America/New_York
-    healthcheck:
-      test: ['CMD-SHELL', 'python3 -c "import urllib.request; urllib.request.urlopen(\"http://localhost:3003/ping\")" || exit 1']
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 120s
     networks:
       - home_apps
 
@@ -189,11 +185,6 @@ services:
     restart: unless-stopped
     volumes:
       - immich_redis:/data
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 10s
-      timeout: 5s
-      retries: 5
     networks:
       - home_apps
 
@@ -208,12 +199,6 @@ services:
       - POSTGRES_INITDB_ARGS=--data-checksums
     volumes:
       - immich_db:/var/lib/postgresql/data
-    healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -d immich -U postgres']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
     networks:
       - home_apps
 
@@ -221,20 +206,14 @@ services:
     image: homeassistant/home-assistant:stable
     container_name: homeassistant
     restart: unless-stopped
-    expose:
-      - "8123"
+    ports:
+      - "8123:8123"
     environment:
       - TZ=America/New_York
     volumes:
       - ./apps/homeassistant:/config
       - /etc/localtime:/etc/localtime:ro
     privileged: true
-    healthcheck:
-      test: ['CMD-SHELL', 'curl -f http://localhost:8123/ || exit 1']
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
     networks:
       - home_apps
 
@@ -246,19 +225,12 @@ services:
       - "8096"
     environment:
       - TZ=America/New_York
-      # Base URL configured via Jellyfin dashboard: Settings > Networking > Base URL = /jellyfin
-      - JELLYFIN_PublishedServerUrl=http://localhost/jellyfin
+      - JELLYFIN_PublishedServerUrl=http://jellyfin.local
     volumes:
       - jellyfin_config:/config
       - jellyfin_cache:/cache
       - jellyfin_media:/media
       - /etc/localtime:/etc/localtime:ro
-    healthcheck:
-      test: ['CMD-SHELL', 'curl -f http://localhost:8096/health || exit 1']
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
     networks:
       - home_apps
 
@@ -269,24 +241,19 @@ services:
     ports:
       - "53:53/tcp"
       - "53:53/udp"
-    expose:
-      - "80"
+      - "8053:80"  # Pi-hole Web UI
     environment:
       - TZ=America/New_York
       - WEBPASSWORD=changeme
       - VIRTUAL_HOST=localhost
       - FTLCONF_dns_listeningMode=all
+      - FTLCONF_misc_etc_dnsmasq_d=true
     volumes:
       - pihole_data:/etc/pihole
       - pihole_dnsmasq:/etc/dnsmasq.d
+      - ./apps/pihole/custom-dns.conf:/etc/dnsmasq.d/02-custom-dns.conf:ro
     cap_add:
       - NET_ADMIN
-    healthcheck:
-      test: ['CMD-SHELL', 'dig +short +norecurse +retry=0 @127.0.0.1 pi.hole || exit 1']
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
     networks:
       - home_apps
 
@@ -308,16 +275,136 @@ services:
     volumes:
       - code_server_config:/config
       - code_server_workspace:/config/workspace
-    healthcheck:
-      test: ['CMD-SHELL', 'curl -f http://localhost:8443/ || exit 1']
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
+    networks:
+      - home_apps
+
+  homepage:
+    image: ghcr.io/gethomepage/homepage:latest
+    container_name: homepage
+    restart: unless-stopped
+    expose:
+      - "3000"
+    environment:
+      - TZ=America/New_York
+      - PUID=1000
+      - PGID=1000
+      - HOMEPAGE_ALLOWED_HOSTS=*
+    volumes:
+      - ./apps/homepage:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    user: "1000:999"  # user:docker-group
+    networks:
+      - home_apps
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    expose:
+      - "9000"
+    environment:
+      - TZ=America/New_York
+    volumes:
+      - portainer_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - home_apps
+
+  pulse:
+    image: rcourtman/pulse:latest
+    container_name: pulse
+    restart: unless-stopped
+    expose:
+      - "7655"
+    ports:
+      - "7655:7655"
+    environment:
+      - TZ=America/New_York
+    volumes:
+      - pulse_data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - home_apps
+
+  ghostfolio:
+    image: ghostfolio/ghostfolio:latest
+    container_name: ghostfolio
+    restart: unless-stopped
+    expose:
+      - "3333"
+    ports:
+      - "3333:3333"
+    environment:
+      - NODE_ENV=production
+      - TZ=America/New_York
+      - DATABASE_URL=postgresql://ghostfolio:ghostfolio@ghostfolio-db:5432/ghostfolio?sslmode=prefer
+      - REDIS_HOST=ghostfolio-redis
+      - REDIS_PORT=6379
+      - ACCESS_TOKEN_SALT=changeme_random_salt_32_chars
+      - JWT_SECRET_KEY=changeme_random_jwt_secret_key
+      - BASE_CURRENCY=USD
+    depends_on:
+      - ghostfolio-db
+      - ghostfolio-redis
+    networks:
+      - home_apps
+
+  ghostfolio-db:
+    image: postgres:15-alpine
+    container_name: ghostfolio-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=ghostfolio
+      - POSTGRES_USER=ghostfolio
+      - POSTGRES_PASSWORD=ghostfolio
+    volumes:
+      - ghostfolio_db:/var/lib/postgresql/data
+    networks:
+      - home_apps
+
+  ghostfolio-redis:
+    image: redis:7-alpine
+    container_name: ghostfolio-redis
+    restart: unless-stopped
+    volumes:
+      - ghostfolio_redis:/data
+    networks:
+      - home_apps
+
+  netdata:
+    image: netdata/netdata:latest
+    container_name: netdata
+    hostname: home-server
+    restart: unless-stopped
+    expose:
+      - "19999"
+    environment:
+      - TZ=America/New_York
+    cap_add:
+      - SYS_PTRACE
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - netdata_config:/etc/netdata
+      - netdata_lib:/var/lib/netdata
+      - netdata_cache:/var/cache/netdata
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /var/log:/host/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - home_apps
 
 volumes:
+  npm_data:
+    driver: local
+  npm_letsencrypt:
+    driver: local
   n8n_data:
     driver: local
   nextcloud_data:
@@ -347,6 +434,20 @@ volumes:
   code_server_config:
     driver: local
   code_server_workspace:
+    driver: local
+  portainer_data:
+    driver: local
+  pulse_data:
+    driver: local
+  ghostfolio_db:
+    driver: local
+  ghostfolio_redis:
+    driver: local
+  netdata_config:
+    driver: local
+  netdata_lib:
+    driver: local
+  netdata_cache:
     driver: local
 
 networks:

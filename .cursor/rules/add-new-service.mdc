@@ -1,0 +1,65 @@
+---
+description: Adding a new service to the home server stack
+globs: docker-compose.yml, apps/nginx/conf.d/default.conf, apps/homepage/services.yaml
+---
+
+# Adding a New Service
+
+When adding a new service to the home server stack, follow these steps:
+
+## 1. Docker Compose (`docker-compose.yml`)
+
+Add the service with:
+- `container_name`: lowercase service name
+- `restart: unless-stopped`
+- `expose`: internal port (don't use `ports` unless external access needed)
+- `environment`: include `TZ=America/New_York` if applicable
+- `networks: home_apps`
+- If the service needs a database, add it as a separate `{service}-db` container
+- If the service needs Redis, add it as `{service}-redis` container
+- Add service to nginx's `depends_on` list
+- Add required volumes to the `volumes:` section at the bottom
+
+## 2. Nginx Configuration (`apps/nginx/conf.d/default.conf`)
+
+Add a location block:
+```nginx
+# ============================================
+# Service Name - Short Description
+# ============================================
+location /servicename/ {
+    proxy_pass http://containername:PORT/;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;
+}
+
+location /servicename {
+    return 301 /servicename/;
+}
+```
+
+## 3. Homepage Dashboard (`apps/homepage/services.yaml`)
+
+Add to the appropriate category (Media, Infrastructure, or Productivity):
+```yaml
+- ServiceName:
+    icon: servicename.png
+    href: /servicename/
+    description: Short description
+    server: my-docker
+    container: containername
+```
+
+## Checklist
+- [ ] Docker Compose service added
+- [ ] Database/Redis added if needed
+- [ ] Volumes declared
+- [ ] Added to nginx depends_on
+- [ ] Nginx proxy location configured
+- [ ] Homepage service entry added

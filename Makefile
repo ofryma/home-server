@@ -1,12 +1,14 @@
-.PHONY: up down restart build logs ps clean prune shell-nginx shell-n8n
+.PHONY: up down restart build logs ps clean prune shell-nginx shell-n8n nginx-reload nginx-restart
 
-# Start all services (restarts nginx if already running to reload config)
+# Get local IP address
+LOCAL_IP := $(shell ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null)
+
+# Start all services
 up:
-	@if docker ps -q -f name=nginx | grep -q .; then \
-		docker compose up -d && docker restart nginx; \
-	else \
-		docker compose up -d; \
-	fi
+	@echo "Detecting local IP: $(LOCAL_IP)"
+	docker compose up -d
+	@echo "Reloading nginx configuration..."
+	@docker compose exec -T nginx nginx -s reload 2>/dev/null || true
 
 # Stop all services
 down:
@@ -44,9 +46,23 @@ clean:
 prune:
 	docker system prune -f
 
+# Reload nginx configuration (graceful, no downtime)
+nginx-reload:
+	@echo "Reloading nginx configuration..."
+	docker compose exec nginx nginx -s reload
+
+# Restart nginx container
+nginx-restart:
+	@echo "Restarting nginx container..."
+	docker compose restart nginx
+
 # Shell into nginx container
 shell-nginx:
 	docker compose exec nginx sh
+
+# Shell into nginx-proxy-manager container
+shell-npm:
+	docker compose exec nginx-proxy-manager bash
 
 # Shell into n8n container
 shell-n8n:
@@ -64,18 +80,10 @@ shell-immich:
 shell-homeassistant:
 	docker compose exec homeassistant bash
 
-# Reload nginx configuration
-nginx-reload:
-	docker compose exec nginx nginx -s reload
-
-# Test nginx configuration
-nginx-test:
-	docker compose exec nginx nginx -t
-
 # Show help
 help:
 	@echo "Available commands:"
-	@echo "  make up            - Start all services (restarts nginx if exists)"
+	@echo "  make up            - Start all services"
 	@echo "  make down          - Stop all services"
 	@echo "  make restart       - Restart all services"
 	@echo "  make build         - Build/rebuild services"
@@ -85,10 +93,11 @@ help:
 	@echo "  make ps            - Show running containers"
 	@echo "  make clean         - Stop and remove containers, networks, volumes"
 	@echo "  make prune         - Remove unused Docker resources"
+	@echo "  make nginx-reload  - Reload nginx config (no downtime)"
+	@echo "  make nginx-restart - Restart nginx container"
 	@echo "  make shell-nginx   - Shell into nginx container"
+	@echo "  make shell-npm     - Shell into nginx-proxy-manager container"
 	@echo "  make shell-n8n     - Shell into n8n container"
 	@echo "  make shell-pihole  - Shell into pihole container"
 	@echo "  make shell-immich  - Shell into immich container"
 	@echo "  make shell-homeassistant - Shell into homeassistant container"
-	@echo "  make nginx-reload  - Reload nginx configuration"
-	@echo "  make nginx-test    - Test nginx configuration"

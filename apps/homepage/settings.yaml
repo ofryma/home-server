@@ -1,0 +1,18 @@
+title: Home Server
+favicon: https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/png/homepage.png
+background: 
+    image: https://wallpapercat.com/w/full/5/c/0/2117697-3840x2160-desktop-4k-dark-wallpaper.jpg
+    blur: 10
+theme: dark
+color: slate
+headerStyle: clean
+layout:
+  - Media:
+      style: row
+      columns: 3
+  - Infrastructure:
+      style: row
+      columns: 4
+  - Productivity:
+      style: row
+      columns: 3
