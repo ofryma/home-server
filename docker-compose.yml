@@ -60,6 +60,7 @@ services:
     build:
       context: .
       dockerfile: apps/n8n/Dockerfile
+    image: ghcr.io/${GITHUB_REPOSITORY:-ofrymakdasy/home-server}/n8n:latest
     container_name: n8n
     restart: unless-stopped
     expose:
@@ -262,6 +263,7 @@ services:
     build:
       context: .
       dockerfile: apps/code-server/Dockerfile
+    image: ghcr.io/${GITHUB_REPOSITORY:-ofrymakdasy/home-server}/code-server:latest
     container_name: code-server
     restart: unless-stopped
     expose:
@@ -417,6 +419,29 @@ services:
       - vaultwarden_data:/data
     networks:
       - home_apps
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: watchtower
+    restart: unless-stopped
+    environment:
+      - TZ=America/New_York
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_INCLUDE_RESTARTING=true
+      - WATCHTOWER_INCLUDE_STOPPED=false
+      - WATCHTOWER_POLL_INTERVAL=300
+      - WATCHTOWER_ROLLING_RESTART=true
+      - WATCHTOWER_NOTIFICATIONS=shoutrrr
+      - WATCHTOWER_NOTIFICATION_URL=${WATCHTOWER_NOTIFICATION_URL:-}
+      - REPO_USER=${GITHUB_USERNAME:-}
+      - REPO_PASS=${GITHUB_TOKEN:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - home_apps
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
 
 volumes:
   npm_data:
