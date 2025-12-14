@@ -17,3 +17,6 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Install UV
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+

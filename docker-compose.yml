@@ -38,6 +38,7 @@ services:
       - pulse
       - ghostfolio
       - netdata
+      - vaultwarden
     networks:
       - home_apps
 
@@ -400,6 +401,23 @@ services:
     networks:
       - home_apps
 
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    expose:
+      - "80"
+    environment:
+      - TZ=America/New_York
+      - DOMAIN=http://localhost/vaultwarden
+      - ROCKET_PORT=80
+      - ADMIN_TOKEN=changeme
+      - SIGNUPS_ALLOWED=true
+    volumes:
+      - vaultwarden_data:/data
+    networks:
+      - home_apps
+
 volumes:
   npm_data:
     driver: local
@@ -448,6 +466,8 @@ volumes:
   netdata_lib:
     driver: local
   netdata_cache:
+    driver: local
+  vaultwarden_data:
     driver: local
 
 networks:

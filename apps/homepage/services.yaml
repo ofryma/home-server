@@ -90,3 +90,9 @@
         description: Wealth management & portfolio tracker
         server: my-docker
         container: ghostfolio
+    - Vaultwarden:
+        icon: vaultwarden.png
+        href: /vaultwarden/
+        description: Password manager
+        server: my-docker
+        container: vaultwarden
